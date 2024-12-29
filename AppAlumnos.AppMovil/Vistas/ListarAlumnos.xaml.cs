@@ -15,22 +15,36 @@ public partial class ListarAlumnos : ContentPage
     {
         InitializeComponent();
         BindingContext = this;
-        CargarAlumnos();
     }
 
-    private async void CargarAlumnos()
+    protected override async void OnAppearing()
     {
-        var alumnos = await client.Child("Alumnos").OnceAsync<Alumno>();
-        Lista.Clear();
-        foreach (var alumno in alumnos)
+        base.OnAppearing();
+        await CargarAlumnos();
+    }
+
+    private async Task CargarAlumnos()
+    {
+        try
         {
-            if (alumno.Object.Estado == true)
+            var alumnos = await client.Child("Alumnos").OnceAsync<Alumno>();
+            Lista.Clear();
+
+            foreach (var alumno in alumnos)
             {
-                alumno.Object.Id = alumno.Key;
-                Lista.Add(alumno.Object);
+                if (alumno.Object.Estado == true)
+                {
+                    alumno.Object.Id = alumno.Key;
+                    Lista.Add(alumno.Object);
+                }
             }
+
+            ListarCollection.ItemsSource = Lista;
         }
-        ListarCollection.ItemsSource = Lista;
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", "Error al cargar los alumnos: " + ex.Message, "OK");
+        }
     }
 
     private void filtroSerachBar_TextChanged(object sender, TextChangedEventArgs e)
@@ -53,10 +67,26 @@ public partial class ListarAlumnos : ContentPage
 
         if (alumno != null && !string.IsNullOrEmpty(alumno.Id))
         {
-            alumno.Estado = false;
-            await client.Child("Alumnos").Child(alumno.Id).PutAsync(alumno);
-            Lista.Remove(alumno);
-            ListarCollection.ItemsSource = Lista;
+            bool confirmacion = await DisplayAlert("Confirmar", $"¿Desea deshabilitar a {alumno.NombreCompleto}?", "Sí", "No");
+
+            if (confirmacion)
+            {
+                alumno.Estado = false;
+                await client.Child("Alumnos").Child(alumno.Id).PutAsync(alumno);
+                Lista.Remove(alumno);
+                ListarCollection.ItemsSource = Lista;
+            }
+        }
+    }
+
+    private async void EditarAlumno_Clicked(object sender, EventArgs e)
+    {
+        var boton = sender as ImageButton;
+        var alumno = boton?.CommandParameter as Alumno;
+
+        if (alumno != null && !string.IsNullOrEmpty(alumno.Id))
+        {
+            await Navigation.PushAsync(new EditarAlumno(alumno));
         }
     }
 }
